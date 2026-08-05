@@ -31,12 +31,14 @@ public class LecternManager {
     }
 
     private static class Entry {
-        TextDisplay display;
+        TextDisplay display;      // 主层：变色/闪烁/炫彩作用于此
+        TextDisplay glowDisplay;  // 辉光层：放大纯色字，荧光墨囊开关
+        boolean glowOn;           // 辉光当前是否显示
         String color;
         String title;
         UUID ownerUuid;   // 创建者（放置书籍的玩家），只有他能操作
         int blinkTask = -1;
-        boolean blinkOn;
+        double blinkPhase;        // 呼吸灯相位
         int rainbowTask = -1;
         float rainbowHue;
     }
@@ -71,6 +73,7 @@ public class LecternManager {
         if (!entry.title.equals(title)) {
             entry.title = title;
             entry.ownerUuid = playerUuid;
+            entry.glowDisplay.text(Component.text(title).color(TextColor.fromHexString(plugin.getFloatingConfig().getGlowColor())));
             if (entry.blinkTask == -1 && entry.rainbowTask == -1) {
                 applyColor(entry, entry.color);
             }
@@ -83,6 +86,7 @@ public class LecternManager {
         if (entry != null) {
             stopBlink(entry);
             stopRainbow(entry);
+            entry.glowDisplay.remove();
             entry.display.remove();
         }
     }
@@ -92,6 +96,7 @@ public class LecternManager {
         for (Entry entry : displays.values()) {
             stopBlink(entry);
             stopRainbow(entry);
+            entry.glowDisplay.remove();
             entry.display.remove();
         }
         displays.clear();
@@ -109,7 +114,7 @@ public class LecternManager {
         return true;
     }
 
-    // 扔骨粉：闪烁开关。返回 -1 拒绝 / 0 关闭 / 1 开启
+    // 扔骨粉：闪烁开关（呼吸灯）。返回 -1 拒绝 / 0 关闭 / 1 开启
     public int toggleBlink(Block lectern, UUID playerUuid) {
         Entry entry = displays.get(lectern);
         if (entry == null || !entry.ownerUuid.equals(playerUuid)) return -1;
@@ -123,13 +128,13 @@ public class LecternManager {
         return 1;
     }
 
-    // 扔荧光墨囊：发光开关。返回 -1 拒绝 / 0 关闭 / 1 开启
+    // 扔荧光墨囊：辉光开关。返回 -1 拒绝 / 0 关闭 / 1 开启
     public int toggleGlow(Block lectern, UUID playerUuid) {
         Entry entry = displays.get(lectern);
         if (entry == null || !entry.ownerUuid.equals(playerUuid)) return -1;
-        boolean on = !entry.display.isGlowing();
-        setGlow(entry, on);
-        return on ? 1 : 0;
+        entry.glowOn = !entry.glowOn;
+        entry.glowDisplay.setVisible(entry.glowOn);
+        return entry.glowOn ? 1 : 0;
     }
 
     // 扔钻石：炫彩开关。返回 -1 拒绝 / 0 关闭 / 1 开启
@@ -155,6 +160,30 @@ public class LecternManager {
         World world = lectern.getWorld();
         Location loc = lectern.getLocation().add(0.5, 1.0 + cfg.getYOffset(), 0.5);
 
+        double scale = cfg.getTextScale();
+
+        // 辉光层：放大的纯色字，垫在主层后面形成外圈光晕。默认隐藏，荧光墨囊打开
+        TextDisplay glowDisplay = world.spawn(loc, TextDisplay.class);
+        glowDisplay.setBillboard(Display.Billboard.CENTER);
+        glowDisplay.setDefaultBackground(false);
+        glowDisplay.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+        glowDisplay.setSeeThrough(false);
+        glowDisplay.setShadowed(false);
+        glowDisplay.setTextOpacity((byte) 250);
+        glowDisplay.setLineWidth(2000);
+        double glowScale = scale * cfg.getGlowScale();
+        // z 方向 -0.1：把辉光层往远离玩家的方向推一丁点，保证它垫在主层后面
+        // 实测若出现光晕盖住主字（渲染顺序反了），把 -0.1 改成 +0.1 即可
+        glowDisplay.setTransformation(new Transformation(
+                new Vector3f(0f, 0f, -0.1f),
+                new Quaternionf(),
+                new Vector3f((float) glowScale, (float) glowScale, (float) glowScale),
+                new Quaternionf()
+        ));
+        glowDisplay.text(Component.text(title).color(TextColor.fromHexString(cfg.getGlowColor())));
+        glowDisplay.setVisible(false);
+
+        // 主层：正常大小，所有颜色效果作用于此
         TextDisplay display = world.spawn(loc, TextDisplay.class);
         display.setBillboard(Display.Billboard.CENTER);
         display.setDefaultBackground(false);
@@ -163,8 +192,6 @@ public class LecternManager {
         display.setShadowed(cfg.isShadowed());
         display.setTextOpacity((byte) 250);
         display.setLineWidth(2000);
-
-        double scale = cfg.getTextScale();
         display.setTransformation(new Transformation(
                 new Vector3f(0f, 0f, 0f),
                 new Quaternionf(),
@@ -174,6 +201,8 @@ public class LecternManager {
 
         Entry entry = new Entry();
         entry.display = display;
+        entry.glowDisplay = glowDisplay;
+        entry.glowOn = false;
         entry.title = title;
         entry.ownerUuid = ownerUuid;
         entry.color = cfg.getDefaultColor();
@@ -185,16 +214,17 @@ public class LecternManager {
         entry.display.text(Component.text(entry.title).color(TextColor.fromHexString(hex)));
     }
 
+    // 呼吸灯：主色 ↔ 浅化版主色 正弦过渡，不跳变
     private void startBlink(Entry entry) {
         stopBlink(entry);
-        long interval = plugin.getFloatingConfig().getBlinkInterval();
+        FloatingConfig cfg = plugin.getFloatingConfig();
+        long interval = Math.max(1L, cfg.getBlinkInterval());
+        entry.blinkPhase = 0.0;
         entry.blinkTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            if (entry.blinkOn) {
-                applyColor(entry, "#FFFFFF");
-            } else {
-                applyColor(entry, entry.color);
-            }
-            entry.blinkOn = !entry.blinkOn;
+            double step = cfg.getBlinkSpeed() * interval / 20.0 * Math.PI * 2;
+            entry.blinkPhase = (entry.blinkPhase + step) % (Math.PI * 2);
+            double factor = 0.5 + 0.5 * Math.sin(entry.blinkPhase); // 0~1 正弦
+            applyColor(entry, blendColor(entry.color, factor));
         }, interval, interval).getTaskId();
     }
 
@@ -203,14 +233,29 @@ public class LecternManager {
             Bukkit.getScheduler().cancelTask(entry.blinkTask);
             entry.blinkTask = -1;
         }
-        entry.blinkOn = false;
+        entry.blinkPhase = 0.0;
+    }
+
+    // 主色向"浅化版"插值：factor=0 是主色，factor=1 是浅色（主色向白 60% 混合）
+    private String blendColor(String hex, double factor) {
+        int[] rgb = hexToRgb(hex);
+        int r = (int) Math.round(rgb[0] + (255 - rgb[0]) * 0.6 * factor);
+        int g = (int) Math.round(rgb[1] + (255 - rgb[1]) * 0.6 * factor);
+        int b = (int) Math.round(rgb[2] + (255 - rgb[2]) * 0.6 * factor);
+        return String.format("#%02X%02X%02X", r, g, b);
+    }
+
+    private int[] hexToRgb(String hex) {
+        String h = hex.startsWith("#") ? hex.substring(1) : hex;
+        int v = Integer.parseInt(h, 16);
+        return new int[] { (v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF };
     }
 
     // 炫彩：HSV 色相连续递增（hue 每 tick 加 speed*interval/20，到 1 转回 0，正好一圈）
     private void startRainbow(Entry entry) {
         stopRainbow(entry);
         FloatingConfig cfg = plugin.getFloatingConfig();
-        int interval = cfg.getRainbowInterval();
+        int interval = (int) Math.max(1L, cfg.getRainbowInterval());
         float step = (float) (cfg.getRainbowSpeed() * interval / 20.0);
         entry.rainbowHue = 0f;
         entry.rainbowTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
@@ -241,16 +286,5 @@ public class LecternManager {
         else { r = c; g = 0; b = x; }
         return String.format("#%02X%02X%02X",
                 (int) (r * 255), (int) (g * 255), (int) (b * 255));
-    }
-
-    // 发光开关（白色轮廓）
-    private void setGlow(Entry entry, boolean on) {
-        if (on) {
-            entry.display.setGlowing(true);
-            entry.display.setGlowColorOverride(Color.WHITE);
-        } else {
-            entry.display.setGlowing(false);
-            entry.display.setGlowColorOverride(null);
-        }
     }
 }

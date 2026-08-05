@@ -133,7 +133,7 @@ public class LecternManager {
         Entry entry = displays.get(lectern);
         if (entry == null || !entry.ownerUuid.equals(playerUuid)) return -1;
         entry.glowOn = !entry.glowOn;
-        entry.glowDisplay.setVisible(entry.glowOn);
+        setGlowVisible(entry, entry.glowOn);
         return entry.glowOn ? 1 : 0;
     }
 
@@ -162,7 +162,7 @@ public class LecternManager {
 
         double scale = cfg.getTextScale();
 
-        // 辉光层：放大的纯色字，垫在主层后面形成外圈光晕。默认隐藏，荧光墨囊打开
+        // 辉光层：放大的纯色字，垫在主层后面形成外圈光晕。默认隐藏（缩放 0），荧光墨囊打开
         TextDisplay glowDisplay = world.spawn(loc, TextDisplay.class);
         glowDisplay.setBillboard(Display.Billboard.CENTER);
         glowDisplay.setDefaultBackground(false);
@@ -171,17 +171,15 @@ public class LecternManager {
         glowDisplay.setShadowed(false);
         glowDisplay.setTextOpacity((byte) 250);
         glowDisplay.setLineWidth(2000);
-        double glowScale = scale * cfg.getGlowScale();
+        glowDisplay.text(Component.text(title).color(TextColor.fromHexString(cfg.getGlowColor())));
         // z 方向 -0.1：把辉光层往远离玩家的方向推一丁点，保证它垫在主层后面
         // 实测若出现光晕盖住主字（渲染顺序反了），把 -0.1 改成 +0.1 即可
         glowDisplay.setTransformation(new Transformation(
                 new Vector3f(0f, 0f, -0.1f),
                 new Quaternionf(),
-                new Vector3f((float) glowScale, (float) glowScale, (float) glowScale),
+                new Vector3f(0f, 0f, 0f),   // 缩放 0 = 初始隐藏（Display 无 setVisible API）
                 new Quaternionf()
         ));
-        glowDisplay.text(Component.text(title).color(TextColor.fromHexString(cfg.getGlowColor())));
-        glowDisplay.setVisible(false);
 
         // 主层：正常大小，所有颜色效果作用于此
         TextDisplay display = world.spawn(loc, TextDisplay.class);
@@ -208,6 +206,18 @@ public class LecternManager {
         entry.color = cfg.getDefaultColor();
         applyColor(entry, entry.color);
         return entry;
+    }
+
+    // 辉光层显示/隐藏：Display 无 setVisible API，缩放设为 0 即隐藏，恢复正常倍率即显示
+    private void setGlowVisible(Entry entry, boolean on) {
+        FloatingConfig cfg = plugin.getFloatingConfig();
+        float s = on ? (float) (cfg.getTextScale() * cfg.getGlowScale()) : 0f;
+        entry.glowDisplay.setTransformation(new Transformation(
+                new Vector3f(0f, 0f, -0.1f),
+                new Quaternionf(),
+                new Vector3f(s, s, s),
+                new Quaternionf()
+        ));
     }
 
     private void applyColor(Entry entry, String hex) {

@@ -12,7 +12,10 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerTakeLecternBookEvent;
+import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.inventory.ItemStack;
+
+import java.util.UUID;
 
 public class LecternListener implements Listener {
 
@@ -28,109 +31,119 @@ public class LecternListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onLecternChange(PlayerLecternPageChangeEvent event) {
         LecternManager manager = plugin.getLecternManager();
+        FloatingConfig cfg = plugin.getFloatingConfig();
         Block lectern = event.getLectern().getBlock();
         ItemStack book = event.getBook();
         if (book == null) {
+            // 讲台空了，移除显示
+            boolean had = manager.hasDisplay(lectern);
             manager.remove(lectern);
+            if (had) sendMsg(event.getPlayer(), cfg.getMsgDisplayRemoved());
         } else if (event.getPlayer().hasPermission(PERMISSION)) {
+            // 有权限：创建/更新显示
+            boolean existed = manager.hasDisplay(lectern);
             manager.refresh(lectern, book, event.getPlayer().getUniqueId());
+            if (!existed) {
+                sendMsg(event.getPlayer(), cfg.getMsgDisplayCreated());
+            }
+        } else if (!manager.hasDisplay(lectern)) {
+            // 没权限放新书：提示拒绝（讲台已有显示的情况是路人翻页，静默）
+            sendMsg(event.getPlayer(), cfg.getMsgDisplayDenied());
         }
     }
 
     // 取书兜底
     @EventHandler(priority = EventPriority.MONITOR)
     public void onTakeBook(PlayerTakeLecternBookEvent event) {
-        plugin.getLecternManager().remove(event.getLectern().getBlock());
+        LecternManager manager = plugin.getLecternManager();
+        Block lectern = event.getLectern().getBlock();
+        boolean had = manager.hasDisplay(lectern);
+        manager.remove(lectern);
+        if (had) sendMsg(event.getPlayer(), plugin.getFloatingConfig().getMsgDisplayRemoved());
     }
 
     // 敲掉讲台
     @EventHandler(priority = EventPriority.MONITOR)
     public void onBreak(BlockBreakEvent event) {
         if (event.getBlock().getType() == Material.LECTERN) {
-            plugin.getLecternManager().remove(event.getBlock());
+            LecternManager manager = plugin.getLecternManager();
+            Block block = event.getBlock();
+            boolean had = manager.hasDisplay(block);
+            manager.remove(block);
+            if (had) sendMsg(event.getPlayer(), plugin.getFloatingConfig().getMsgDisplayRemoved());
         }
     }
 
-    // 扔道具：染料变色 / 骨粉闪烁 / 荧光墨囊发光 / 钻石炫彩
+    // 区块卸载：清掉该区块内的显示实体，防止实体被存进区块存档变成孤儿
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onChunkUnload(ChunkUnloadEvent event) {
+        plugin.getLecternManager().removeChunk(
+                event.getWorld(),
+                event.getChunk().getX(),
+                event.getChunk().getZ());
+    }
+
+    // 扔物品：染料变色 / 骨粉开关闪烁 / 荧光墨囊开关发光 / 钻石开关炫彩
+    // 成功触发的操作消耗掉扔出的物品（物品消失），被拒绝或不触发不消耗
     @EventHandler(priority = EventPriority.MONITOR)
     public void onDrop(PlayerDropItemEvent event) {
-        Item drop = event.getItemDrop();
-        Material type = drop.getItemStack().getType();
-
-        // 只处理四种道具，其他直接忽略
-        int action = actionOf(type);
-        if (action == 0) return;
+        Material type = event.getItemDrop().getItemStack().getType();
+        if (!isDye(type) && type != Material.BONE_MEAL
+                && type != Material.GLOW_INK_SAC && type != Material.DIAMOND) return;
 
         Player player = event.getPlayer();
         int distance = (int) plugin.getFloatingConfig().getRayDistance();
         Block target = player.getTargetBlockExact(distance);
         if (target == null || target.getType() != Material.LECTERN
                 || !plugin.getLecternManager().hasDisplay(target)) {
-            return;
+            return; // 没对准讲台或讲台没显示：静默不提示，物品不消耗
         }
 
         LecternManager manager = plugin.getLecternManager();
-        switch (action) {
-            case 1: { // 染料：变色
-                boolean ok = manager.setColor(
-                        target, DyeColorUtil.toHex(dyeOf(type)), player.getUniqueId());
-                if (ok) {
-                    drop.remove();
-                    send(player, "color-success");
-                } else {
-                    send(player, "color-denied");
-                }
-                break;
+        FloatingConfig cfg = plugin.getFloatingConfig();
+        UUID uuid = player.getUniqueId();
+        boolean consumed = false;
+
+        if (isDye(type)) {
+            boolean ok = manager.setColor(target, DyeColorUtil.toHex(dyeOf(type)), uuid);
+            sendMsg(player, ok ? cfg.getMsgColorSuccess() : cfg.getMsgColorDenied());
+            consumed = ok;
+        } else if (type == Material.BONE_MEAL) {
+            Boolean on = manager.toggleBlink(target, uuid);
+            if (on == null) {
+                sendMsg(player, cfg.getMsgDenied());
+            } else {
+                sendMsg(player, on ? cfg.getMsgBlinkOn() : cfg.getMsgBlinkOff());
+                consumed = true;
             }
-            case 2: { // 骨粉：闪烁开关
-                int r = manager.toggleBlink(target, player.getUniqueId());
-                if (r == -1) {
-                    send(player, "denied");
-                } else {
-                    drop.remove();
-                    send(player, r == 1 ? "blink-on" : "blink-off");
-                }
-                break;
+        } else if (type == Material.GLOW_INK_SAC) {
+            Boolean on = manager.toggleGlowing(target, uuid);
+            if (on == null) {
+                sendMsg(player, cfg.getMsgDenied());
+            } else {
+                sendMsg(player, on ? cfg.getMsgGlowOn() : cfg.getMsgGlowOff());
+                consumed = true;
             }
-            case 3: { // 荧光墨囊：发光开关
-                int r = manager.toggleGlow(target, player.getUniqueId());
-                if (r == -1) {
-                    send(player, "denied");
-                } else {
-                    drop.remove();
-                    send(player, r == 1 ? "glow-on" : "glow-off");
-                }
-                break;
+        } else { // DIAMOND
+            Boolean on = manager.toggleRainbow(target, uuid);
+            if (on == null) {
+                sendMsg(player, cfg.getMsgDenied());
+            } else {
+                sendMsg(player, on ? cfg.getMsgRainbowOn() : cfg.getMsgRainbowOff());
+                consumed = true;
             }
-            case 4: { // 钻石：炫彩开关
-                int r = manager.toggleRainbow(target, player.getUniqueId());
-                if (r == -1) {
-                    send(player, "denied");
-                } else {
-                    drop.remove();
-                    send(player, r == 1 ? "rainbow-on" : "rainbow-off");
-                }
-                break;
-            }
+        }
+
+        // 成功触发即消耗：移除掉落的物品实体
+        if (consumed) {
+            event.getItemDrop().remove();
         }
     }
 
-    // 发送消息（messages.yml 里留空则静默）
-    private void send(Player player, String key) {
-        String msg = plugin.getMessage(key);
+    // 空字符串不发送
+    private void sendMsg(Player player, String msg) {
         if (msg != null && !msg.isEmpty()) {
             player.sendMessage(msg);
-        }
-    }
-
-    // 0 = 不处理，1 染料，2 骨粉，3 荧光墨囊，4 钻石
-    private int actionOf(Material type) {
-        if (isDye(type)) return 1;
-        switch (type) {
-            case BONE_MEAL: return 2;
-            case GLOW_INK_SAC: return 3;
-            case DIAMOND: return 4;
-            default: return 0;
         }
     }
 

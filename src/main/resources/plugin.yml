@@ -1,0 +1,20 @@
+name: TLeaf-Floating
+version: '1.0.0'
+main: me.linyefl.tleaf.floating.TLeafFloating
+api-version: '1.21'
+author: LinyeFL
+description: 讲台悬浮书名插件
+website: https://github.com/LinyeFL/TLeaf-Floating
+
+commands:
+  tfl:
+    description: TLeaf-Floating 主命令
+    usage: /tfl help
+
+permissions:
+  tleaf-floating.use:
+    description: 允许触发讲台悬浮显示
+    default: op
+  tleaf-floating.reload:
+    description: 允许重载插件配置
+    default: op

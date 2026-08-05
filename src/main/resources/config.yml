@@ -1,0 +1,25 @@
+# TLeaf-Floating 讲台悬浮书名插件配置
+
+# 默认文字颜色（无染料时的颜色），白色
+default-color: '#FFFFFF'
+
+# 文字大小（缩放倍数，1.0 为默认）
+text-scale: 1.0
+
+# 文字在讲台上方的高度（格）
+y-offset: 0.6
+
+# 是否显示阴影
+shadowed: true
+
+# 闪烁间隔（tick，20 tick = 1 秒）
+blink-interval: 10
+
+# 扔道具检测的射线距离（格，玩家准星对着讲台扔道具）
+ray-distance: 2
+
+# 炫彩模式：色环每秒流转圈数
+rainbow-speed: 1.0
+
+# 炫彩模式：每多少 tick 刷新一次颜色（1 = 每 tick 最顺滑）
+rainbow-interval: 1

@@ -1,0 +1,31 @@
+# TLeaf-Floating 消息文案配置
+# 颜色用 § 代码，如 §a 绿色、§c 红色、§7 灰色
+# 某条留空表示该操作静默不提示
+
+# 讲台显示相关
+display-created: '§a悬浮书名已创建'
+display-denied: '§c你无权使用讲台悬浮显示'
+display-removed: '§7悬浮书名已移除'
+
+# 扔染料变色
+color-success: '§a书名颜色已切换'
+color-denied: '§c只有这本书的创建者才能染色'
+
+# 扔骨粉闪烁
+blink-on: '§a闪烁已开启'
+blink-off: '§a闪烁已关闭'
+
+# 扔荧光墨囊发光
+glow-on: '§a发光已开启'
+glow-off: '§a发光已关闭'
+
+# 扔钻石炫彩
+rainbow-on: '§a炫彩模式已开启'
+rainbow-off: '§a炫彩模式已关闭'
+
+# 通用拒绝（非创建者操作）
+denied: '§c只有这本书的创建者才能操作'
+
+# 重载
+reload-success: '§a配置已重载'
+reload-denied: '§c你没有权限重载配置'

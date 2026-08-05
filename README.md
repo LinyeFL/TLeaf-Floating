@@ -61,7 +61,7 @@
 | y-offset | 0.6 | 文字在讲台上方高度（格） |
 | shadowed | true | 是否显示阴影 |
 | blink-interval | 10 | 闪烁间隔（tick，20 tick = 1 秒） |
-| ray-distance | 5 | 扔道具检测的射线距离（格） |
+| ray-distance | 2 | 扔道具检测的射线距离（格） |
 | rainbow-speed | 1.0 | 炫彩每秒流转圈数 |
 | rainbow-interval | 1 | 炫彩每几 tick 刷新一次颜色 |
 

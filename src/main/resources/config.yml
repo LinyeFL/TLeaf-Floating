@@ -12,13 +12,16 @@ y-offset: 0.3
 # 是否显示阴影
 shadowed: true
 
-# 闪烁间隔（tick，20 tick = 1 秒）
-blink-interval: 10
+# 渐变闪烁：一次完整渐变（当前色 → 白 → 当前色）的秒数，1.0 = 1 秒一轮
+blink-period: 1.0
+
+# 渐变闪烁：每多少 tick 刷新一次颜色（2 = 50ms 一帧，最顺滑）
+blink-interval: 2
 
 # 炫彩模式：色环每秒转几圈（1.0 = 一秒转完一整圈彩虹）
 rainbow-speed: 1.0
 
-# 炫彩模式：每多少个 tick 刷新一次颜色（2 = 每 2 tick 刷新，25ms 一帧依然丝滑，负载减半）
+# 炫彩模式：每多少个 tick 刷新一次颜色（1 = 每 tick 刷新，最顺滑）
 rainbow-interval: 2
 
 # 发光模式：光晕层缩放倍数（从内到外，相对文字缩放，1.0 = 与主字一样大）
@@ -41,10 +44,13 @@ breathing-period: 3.0
 breathing-min-opacity: 60
 breathing-max-opacity: 210
 
-# 呼吸灯：每多少 tick 刷新一次（3 = 每 3 tick 刷新，75ms 一帧人眼无感，负载降到 1/3）
+# 呼吸灯：每多少 tick 刷新一次（1 = 每 tick 刷新，最顺滑）
 breathing-interval: 3
 
 # 扔物品检测的射线距离（格，玩家准星对着讲台扔物品）
 # 说明：这是射线长度，从玩家眼睛沿准星向前扫的格数，撞到讲台即命中。
 # 不含讲台那一格，也不含玩家站的格子，只算中间空档。2 = 贴脸操作
 ray-distance: 2
+
+# 每个玩家默认最多能创建的悬浮标题数量（无 tleaf-floating.limit.<数字> 权限时生效）
+default-limit: 3

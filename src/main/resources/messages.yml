@@ -29,3 +29,6 @@ denied: '§c只有这本书的创建者才能操作'
 # 重载
 reload-success: '§a配置已重载'
 reload-denied: '§c你没有权限重载配置'
+
+# —— 数量上限 ——
+limit-reached: '§c你已达到悬浮标题数量上限（{limit} 个）'

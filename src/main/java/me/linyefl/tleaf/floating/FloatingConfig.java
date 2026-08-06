@@ -14,12 +14,14 @@ public class FloatingConfig {
 
     private String defaultColor = "#FFFFFF";
     private double textScale = 1.0;
-    private double yOffset = 0.3;          // 改：0.6 → 0.3
+    private double yOffset = 0.3;
     private boolean shadowed = true;
-    private long blinkInterval = 10;
+    private double blinkPeriod = 1.0;
+    private long blinkInterval = 2;
     private double rainbowSpeed = 1.0;
-    private long rainbowInterval = 2;      // 改：1 → 2
+    private long rainbowInterval = 2;
     private double rayDistance = 2.0;
+    private int defaultLimit = 3;
 
     // 发光（多层光晕）+ 呼吸灯
     private List<Double> glowScales = Arrays.asList(1.05, 1.10, 1.16);
@@ -29,7 +31,7 @@ public class FloatingConfig {
     private double breathingPeriod = 3.0;
     private int breathingMinOpacity = 60;
     private int breathingMaxOpacity = 210;
-    private long breathingInterval = 3;    // 改：1 → 3
+    private long breathingInterval = 3;
 
     // messages.yml 消息文案
     private String msgDisplayCreated = "§a悬浮文字已开启";
@@ -46,6 +48,7 @@ public class FloatingConfig {
     private String msgDenied = "§c只有这本书的创建者才能操作";
     private String msgReloadSuccess = "§a配置已重载";
     private String msgReloadDenied = "§c你没有权限执行此命令";
+    private String msgLimitReached = "§c你已达到悬浮标题数量上限（{limit} 个）";
 
     public FloatingConfig(TLeafFloating plugin) {
         this.plugin = plugin;
@@ -59,10 +62,12 @@ public class FloatingConfig {
         textScale = cfg.getDouble("text-scale", textScale);
         yOffset = cfg.getDouble("y-offset", yOffset);
         shadowed = cfg.getBoolean("shadowed", shadowed);
-        blinkInterval = cfg.getLong("blink-interval", blinkInterval);
+        blinkPeriod = Math.max(0.1, cfg.getDouble("blink-period", blinkPeriod));
+        blinkInterval = Math.max(1, cfg.getLong("blink-interval", blinkInterval));
         rainbowSpeed = cfg.getDouble("rainbow-speed", rainbowSpeed);
         rainbowInterval = cfg.getLong("rainbow-interval", rainbowInterval);
         rayDistance = cfg.getDouble("ray-distance", rayDistance);
+        defaultLimit = cfg.getInt("default-limit", defaultLimit);
 
         // 光晕层缩放（过滤非法值，至少 0.5 倍）
         List<Double> gs = cfg.getDoubleList("glow-scales");
@@ -106,6 +111,7 @@ public class FloatingConfig {
         msgDenied = msg.getString("denied", msgDenied);
         msgReloadSuccess = msg.getString("reload-success", msgReloadSuccess);
         msgReloadDenied = msg.getString("reload-denied", msgReloadDenied);
+        msgLimitReached = msg.getString("limit-reached", msgLimitReached);
     }
 
     private int clamp255(int v) {
@@ -116,10 +122,12 @@ public class FloatingConfig {
     public double getTextScale() { return textScale; }
     public double getYOffset() { return yOffset; }
     public boolean isShadowed() { return shadowed; }
+    public double getBlinkPeriod() { return blinkPeriod; }
     public long getBlinkInterval() { return blinkInterval; }
     public double getRainbowSpeed() { return rainbowSpeed; }
     public long getRainbowInterval() { return rainbowInterval; }
     public double getRayDistance() { return rayDistance; }
+    public int getDefaultLimit() { return defaultLimit; }
 
     public List<Double> getGlowScales() { return glowScales; }
     public int getGlowOpacity() { return glowOpacity; }
@@ -144,4 +152,5 @@ public class FloatingConfig {
     public String getMsgDenied() { return msgDenied; }
     public String getMsgReloadSuccess() { return msgReloadSuccess; }
     public String getMsgReloadDenied() { return msgReloadDenied; }
+    public String getMsgLimitReached() { return msgLimitReached; }
 }

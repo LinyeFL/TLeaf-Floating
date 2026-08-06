@@ -12,7 +12,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerTakeLecternBookEvent;
-import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.UUID;
@@ -40,10 +39,13 @@ public class LecternListener implements Listener {
             manager.remove(lectern);
             if (had) sendMsg(event.getPlayer(), cfg.getMsgDisplayRemoved());
         } else if (event.getPlayer().hasPermission(PERMISSION)) {
-            // 有权限：创建/更新显示
+            // 有权限：创建/更新显示（先查数量上限）
             boolean existed = manager.hasDisplay(lectern);
-            manager.refresh(lectern, book, event.getPlayer().getUniqueId());
-            if (!existed) {
+            int limit = manager.limitOf(event.getPlayer());
+            boolean ok = manager.refresh(lectern, book, event.getPlayer().getUniqueId(), limit);
+            if (!ok) {
+                sendMsg(event.getPlayer(), cfg.getMsgLimitReached().replace("{limit}", String.valueOf(limit)));
+            } else if (!existed) {
                 sendMsg(event.getPlayer(), cfg.getMsgDisplayCreated());
             }
         } else if (!manager.hasDisplay(lectern)) {
@@ -72,15 +74,6 @@ public class LecternListener implements Listener {
             manager.remove(block);
             if (had) sendMsg(event.getPlayer(), plugin.getFloatingConfig().getMsgDisplayRemoved());
         }
-    }
-
-    // 区块卸载：清掉该区块内的显示实体，防止实体被存进区块存档变成孤儿
-    @EventHandler(priority = EventPriority.MONITOR)
-    public void onChunkUnload(ChunkUnloadEvent event) {
-        plugin.getLecternManager().removeChunk(
-                event.getWorld(),
-                event.getChunk().getX(),
-                event.getChunk().getZ());
     }
 
     // 扔物品：染料变色 / 骨粉开关闪烁 / 荧光墨囊开关发光 / 钻石开关炫彩

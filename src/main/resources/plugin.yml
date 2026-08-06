@@ -5,16 +5,21 @@ api-version: '1.21'
 author: LinyeFL
 description: 讲台悬浮书名插件
 website: https://github.com/LinyeFL/TLeaf-Floating
-
 commands:
   tfl:
     description: TLeaf-Floating 主命令
     usage: /tfl help
-
+    aliases: [tleaf-floating]
 permissions:
   tleaf-floating.use:
-    description: 允许触发讲台悬浮显示
+    description: 使用讲台悬浮功能
     default: op
   tleaf-floating.reload:
-    description: 允许重载插件配置
+    description: 重载插件配置
+    default: op
+  tleaf-floating.limit.*:
+    description: 设置悬浮标题数量上限（把 * 换成数字，如 tleaf-floating.limit.10，最大 1000）
+    default: false
+  tleaf-floating.bypass:
+    description: 无视悬浮标题数量上限
     default: op
